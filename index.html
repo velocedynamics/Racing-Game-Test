@@ -1,1 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Veloce Dynamics | Mini Racing Game</title>
+  <link rel="icon" type="image/png" href="images/Veloce Dynamics Logo no background.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
+  <style>
+    :root {
+      --bg: #020617;
+      --accent1: #22d3ee; /* ICE BLUE */
+      --accent2: #6366f1;
+      --accent3: #a855f7;
+      --text: #f9fafb;
+      --muted: #9ca3af;
+      --border: rgba(148, 163, 184, 0.35);
+      --radius-lg: 18px;
+      --radius-full: 999px;
+      --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.9);
+    }
 
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top, rgba(99, 102, 241, 0.18), transparent 55%), radial-gradient(circle at bottom, #020617 0, #000000 60%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow-x: hidden;
+      padding: 1rem;
+    }
+
+    body::before {
+      content: ""; position: absolute; inset: -200px;
+      background: radial-gradient(circle at 20% 0%, rgba(34, 211, 238, 0.18), transparent 55%), radial-gradient(circle at 80% 100%, rgba(168, 85, 247, 0.22), transparent 55%);
+      opacity: 0.4; mix-blend-mode: screen; pointer-events: none; z-index: -1;
+    }
+
+    .game-wrapper {
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.9), #020617);
+      border-radius: var(--radius-lg); 
+      border: 1px solid var(--border);
+      padding: 2rem; 
+      box-shadow: var(--shadow-soft);
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .logo { width: 100px; margin: 0 auto 1rem auto; display: block; }
+
+    h1 {
+      font-size: 2rem; margin-bottom: 0.5rem;
+      background: linear-gradient(90deg, var(--accent1), var(--accent2), var(--accent3));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+
+    p { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.95rem; }
+
+    #gameCanvas {
+      background-color: #0f172a;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+      height: auto;
+      touch-action: none; /* Prevents zooming/scrolling on mobile while playing */
+      cursor: pointer;
+    }
+
+    .controls-hint {
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: var(--accent1);
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+
+    .btn-secondary {
+      border-radius: var(--radius-full); padding: 0.55rem 1.3rem; font-size: 0.85rem;
+      background: transparent; color: var(--text); border: 1px solid rgba(148, 163, 184, 0.8);
+      cursor: pointer; text-transform: uppercase; letter-spacing: 0.12em; text-decoration: none;
+      margin-top: 1.5rem; display: inline-block; transition: all 0.2s;
+    }
+    
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); transform: translateY(-2px); }
+  </style>
+</head>
+<body>
+
+  <div class="game-wrapper">
+    <img src="images/Veloce Dynamics Logo no background.png" alt="Veloce Dynamics Logo" class="logo">
+    
+    <h1>Track Simulator</h1>
+    <p>Dodge the slower cars! How long can you survive?</p>
+
+    <canvas id="gameCanvas" width="320" height="480"></canvas>
+
+    <div class="controls-hint">
+      <span>💻 <b>PC:</b> Left/Right Arrows</span>
+      <span>📱 <b>Mobile:</b> Tap Left/Right side</span>
+    </div>
+
+    <a href="index.html" class="btn-secondary">← Back to Website</a>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Game Variables
+    let gameState = 'start'; // 'start', 'playing', 'gameover'
+    let score = 0;
+    let highscore = localStorage.getItem('veloceRacingHighscore') || 0;
+    let gameSpeed = 4;
+    let frames = 0;
+
+    // Track/Road configuration
+    const laneCount = 3;
+    const laneWidth = canvas.width / laneCount;
+    let roadLines = [];
+
+    // Player Car (Ice Blue!)
+    const player = {
+      w: 30,
+      h: 55,
+      x: canvas.width / 2 - 15,
+      y: canvas.height - 80,
+      speed: 5,
+      dx: 0,
+      color: '#22d3ee' 
+    };
+
+    // Enemy Cars
+    let enemies = [];
+    const enemyColors = ['#ef4444', '#fbbf24', '#a855f7', '#10b981']; // Red, Yellow, Purple, Green
+
+    // --- INPUT HANDLING ---
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') player.dx = -player.speed;
+      if (e.key === 'ArrowRight' || e.key === 'd') player.dx = player.speed;
+      
+      // Start or Restart with Spacebar
+      if (e.key === ' ' && gameState !== 'playing') resetGame();
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'a' || e.key === 'd') {
+        player.dx = 0;
+      }
+    });
+
+    // Mouse / Touch (Clicking left or right side of canvas)
+    canvas.addEventListener('mousedown', handleTouchStart);
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handleTouchStart(e.touches[0]);
+    }, {passive: false});
+
+    canvas.addEventListener('mouseup', stopMovement);
+    canvas.addEventListener('touchend', stopMovement);
+
+    function handleTouchStart(e) {
+      if (gameState !== 'playing') {
+        resetGame();
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      
+      // If clicked on left half, move left. If right half, move right.
+      if (clickX < canvas.width / 2) {
+        player.dx = -player.speed;
+      } else {
+        player.dx = player.speed;
+      }
+    }
+
+    function stopMovement() {
+      player.dx = 0;
+    }
+
+    // --- GAME LOGIC ---
+    function resetGame() {
+      player.x = canvas.width / 2 - player.w / 2;
+      player.dx = 0;
+      enemies = [];
+      roadLines = [];
+      score = 0;
+      gameSpeed = 4;
+      frames = 0;
+      
+      // Initial Road Lines
+      for(let i=0; i<5; i++) {
+        roadLines.push({y: i * 100});
+      }
+
+      gameState = 'playing';
+      update();
+    }
+
+    function spawnEnemy() {
+      // Pick a random lane
+      const lane = Math.floor(Math.random() * laneCount);
+      const enemyX = (lane * laneWidth) + (laneWidth / 2) - (player.w / 2);
+      
+      enemies.push({
+        x: enemyX,
+        y: -60,
+        w: 30,
+        h: 55,
+        speed: Math.random() * 2 + (gameSpeed * 0.4), // Slower than track speed to simulate overtaking
+        color: enemyColors[Math.floor(Math.random() * enemyColors.length)]
+      });
+    }
+
+    function drawCar(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, 6); // Car body
+      ctx.fill();
+      
+      // Windshield
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(x + 4, y + 12, w - 8, 10);
+      
+      // Rear window
+      ctx.fillRect(x + 4, y + h - 15, w - 8, 8);
+      
+      // Headlights
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x + 3, y - 2, 6, 4);
+      ctx.fillRect(x + w - 9, y - 2, 6, 4);
+    }
+
+    function update() {
+      if (gameState !== 'playing') return;
+
+      // Clear Canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      frames++;
+
+      // Increase difficulty slightly over time
+      if (frames % 600 === 0) gameSpeed += 0.5;
+
+      // Update Player position
+      player.x += player.dx;
+      // Keep player inside canvas
+      if (player.x < 0) player.x = 0;
+      if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
+
+      // Draw Road Lines
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      roadLines.forEach((line, index) => {
+        line.y += gameSpeed;
+        if (line.y > canvas.height) line.y = -50;
+        
+        // Draw dashes for lane dividers
+        for(let l = 1; l < laneCount; l++) {
+          ctx.fillRect(l * laneWidth - 2, line.y, 4, 30);
+        }
+      });
+
+      // Enemy Logic
+      if (frames % Math.max(40, 90 - Math.floor(gameSpeed * 5)) === 0) {
+        spawnEnemy();
+      }
+
+      for (let i = 0; i < enemies.length; i++) {
+        let e = enemies[i];
+        e.y += (gameSpeed - e.speed + 2); // Relative speed
+
+        drawCar(e.x, e.y, e.w, e.h, e.color);
+
+        // Collision Detection (AABB)
+        if (
+          player.x < e.x + e.w - 4 &&
+          player.x + player.w - 4 > e.x &&
+          player.y < e.y + e.h - 4 &&
+          player.h + player.y - 4 > e.y
+        ) {
+          gameState = 'gameover';
+          if (score > highscore) {
+            highscore = score;
+            localStorage.setItem('veloceRacingHighscore', highscore);
+          }
+        }
+
+        // Remove off-screen enemies & add score
+        if (e.y > canvas.height) {
+          enemies.splice(i, 1);
+          i--;
+          score += 10;
+        }
+      }
+
+      // Draw Player Car
+      drawCar(player.x, player.y, player.w, player.h, player.color);
+
+      // Draw UI
+      ctx.fillStyle = '#fff';
+      ctx.font = '16px sans-serif';
+      ctx.fillText(`Score: ${score}`, 10, 25);
+      ctx.fillText(`Best: ${highscore}`, canvas.width - 80, 25);
+
+      requestAnimationFrame(update);
+      
+      if(gameState === 'gameover') drawGameOver();
+    }
+
+    function drawStartScreen() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#22d3ee';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('VELOCE DYNAMICS', canvas.width/2, canvas.height/2 - 20);
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = '16px sans-serif';
+      ctx.fillText('Tap or Spacebar to Race', canvas.width/2, canvas.height/2 + 20);
+    }
+
+    function drawGameOver() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 30px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('CRASHED!', canvas.width/2, canvas.height/2 - 30);
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = '20px sans-serif';
+      ctx.fillText(`Score: ${score}`, canvas.width/2, canvas.height/2 + 10);
+      
+      ctx.fillStyle = '#22d3ee';
+      ctx.font = '16px sans-serif';
+      ctx.fillText('Tap or Spacebar to Restart', canvas.width/2, canvas.height/2 + 50);
+    }
+
+    // Initialize
+    drawStartScreen();
+
+  </script>
+</body>
+</html>
