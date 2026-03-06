@@ -8,7 +8,7 @@
   <style>
     :root {
       --bg: #020617;
-      --accent1: #22d3ee; /* ICE BLUE */
+      --accent1: #22d3ee;
       --accent2: #6366f1;
       --accent3: #a855f7;
       --text: #f9fafb;
@@ -116,49 +116,52 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // Game States: 'menu', 'grid' (waiting for lights), 'lights' (sequence), 'racing', 'finished'
+    // Load Player's Car Image
+    const playerImg = new Image();
+    playerImg.src = 'images/V3VC Aq-Photoroom.png'; // CHANGE THIS if you want to use the Photoroom cutout instead!
+
+    // Game States: 'menu', 'grid', 'lights', 'racing', 'finished'
     let gameState = 'menu'; 
     let frames = 0;
     
-    // Race Settings
-    const raceDistance = 18000; // How long the track is
-    let trackOffset = 0; // For moving the road lines
+    // INCREASED DIFFICULTY: Longer Race
+    const raceDistance = 25000; 
+    let trackOffset = 0; 
+    let finalPosition = 1; // FIX: Locks in your place when you finish
     
     // F1 Lights
-    let lightsPhase = 0; // 0 to 5
+    let lightsPhase = 0; 
     let lightsOutDelay = 0;
 
     // Veloce Dynamics STEM Car (Player)
     let player = {
-      w: 34, h: 70,
-      x: 0, y: 360, // y is fixed on screen
-      speed: 0, maxSpeed: 16.5, accel: 0.15,
-      dx: 0, handling: 6,
-      distance: 0, // actual distance traveled
-      color: '#22d3ee'
+      w: 40, h: 80, // Slightly wider to fit the image well
+      x: 0, y: 360,
+      speed: 0, maxSpeed: 16.6, accel: 0.15,
+      dx: 0, handling: 6.5,
+      distance: 0 
     };
 
-    // 3 Rival Cars
+    // 3 Rival Cars (INCREASED DIFFICULTY)
     let enemies = [];
     
     function initGrid() {
-      // Player starts back of the grid, lane 1
       player.x = 80;
       player.distance = 0;
       player.speed = 0;
       player.dx = 0;
+      finalPosition = 1; // Reset locked position
 
-      // 3 specific rivals placed ahead on the grid
+      // Rivals are now faster and accelerate quicker
       enemies = [
-        { name: 'Green', w: 34, h: 70, x: 200, y: 0, speed: 0, maxSpeed: 14.8, accel: 0.10, distance: 250, color: '#10b981' },
-        { name: 'Silver', w: 34, h: 70, x: 140, y: 0, speed: 0, maxSpeed: 15.2, accel: 0.11, distance: 500, color: '#cbd5e1' },
-        { name: 'Red', w: 34, h: 70, x: 200, y: 0, speed: 0, maxSpeed: 15.6, accel: 0.12, distance: 750, color: '#ef4444' }
+        { name: 'Green', w: 34, h: 70, x: 200, y: 0, speed: 0, maxSpeed: 15.8, accel: 0.13, distance: 250, color: '#10b981' },
+        { name: 'Silver', w: 34, h: 70, x: 140, y: 0, speed: 0, maxSpeed: 16.2, accel: 0.14, distance: 500, color: '#cbd5e1' },
+        { name: 'Red', w: 34, h: 70, x: 200, y: 0, speed: 0, maxSpeed: 16.5, accel: 0.16, distance: 750, color: '#ef4444' } // Red is almost as fast as you!
       ];
 
       lightsPhase = 0;
       frames = 0;
       gameState = 'lights';
-      // Random delay before lights go out (between 0.5s and 2s after 5th light)
       lightsOutDelay = Math.floor(Math.random() * 90) + 30; 
     }
 
@@ -188,19 +191,16 @@
 
     // --- DRAWING FUNCTIONS ---
     function drawSTEMCar(x, y, w, h, color) {
-      // Tires
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(x, y + 12, 6, 16);
       ctx.fillRect(x + w - 6, y + 12, 6, 16);
       ctx.fillRect(x, y + h - 22, 6, 16);
       ctx.fillRect(x + w - 6, y + h - 22, 6, 16);
 
-      // Wings
       ctx.fillStyle = color;
       ctx.fillRect(x + 2, y + 2, w - 4, 6);
       ctx.fillRect(x + 4, y + h - 8, w - 8, 8);
 
-      // Chassis
       ctx.beginPath();
       ctx.moveTo(x + 10, y + 8);
       ctx.lineTo(x + w - 10, y + 8);
@@ -209,25 +209,21 @@
       ctx.closePath();
       ctx.fill();
 
-      // Cockpit
       ctx.fillStyle = '#020617';
       ctx.beginPath();
       ctx.roundRect(x + 12, y + 28, w - 24, 16, 4);
       ctx.fill();
 
-      // Decal
       ctx.fillStyle = 'rgba(255,255,255,0.3)';
       ctx.fillRect(x + w/2 - 1, y + 48, 2, 12);
     }
 
     function drawLights() {
-      if (lightsPhase === 6) return; // Lights are out!
-
+      if (lightsPhase === 6) return; 
       const boxW = 200, boxH = 50;
       const boxX = canvas.width/2 - boxW/2;
       const boxY = 40;
 
-      // Box
       ctx.fillStyle = '#0f172a';
       ctx.beginPath();
       ctx.roundRect(boxX, boxY, boxW, boxH, 8);
@@ -236,17 +232,16 @@
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // 5 Lights
       for(let i=0; i<5; i++) {
         ctx.beginPath();
         ctx.arc(boxX + 20 + (i * 40), boxY + 25, 12, 0, Math.PI*2);
         if (i < lightsPhase) {
-          ctx.fillStyle = '#ef4444'; // Red On
+          ctx.fillStyle = '#ef4444'; 
           ctx.fill();
           ctx.shadowBlur = 10;
           ctx.shadowColor = '#ef4444';
         } else {
-          ctx.fillStyle = '#1e293b'; // Off
+          ctx.fillStyle = '#1e293b'; 
           ctx.fill();
         }
         ctx.shadowBlur = 0;
@@ -274,7 +269,7 @@
         if (lightsPhase === 5) {
           lightsOutDelay--;
           if (lightsOutDelay <= 0) {
-            lightsPhase = 6; // Lights Out!
+            lightsPhase = 6; 
             gameState = 'racing';
           }
         }
@@ -282,23 +277,22 @@
 
       // 2. RACING LOGIC
       if (gameState === 'racing') {
-        // Player accelerates automatically
         if (player.speed < player.maxSpeed) player.speed += player.accel;
         
-        // Steering
         player.x += player.dx;
         if (player.x < 10) player.x = 10;
         if (player.x + player.w > canvas.width - 10) player.x = canvas.width - player.w - 10;
         
         player.distance += player.speed;
 
-        // Track lines scrolling
         trackOffset += player.speed;
         if (trackOffset > 100) trackOffset -= 100;
 
-        // Check for finish line
+        // BUG FIX: Lock the position exactly when the player finishes!
         if (player.distance >= raceDistance) {
           gameState = 'finished';
+          finalPosition = 1;
+          enemies.forEach(e => { if (e.distance > player.distance) finalPosition++; });
         }
       }
 
@@ -309,13 +303,12 @@
         ctx.fillRect((canvas.width/3)*2 - 2, i + trackOffset, 4, 40);
       }
 
-      // Draw Start Line (moves down and disappears as you drive away)
+      // Draw Start & Finish Lines
       let startLineY = player.y - (0 - player.distance) + player.h + 20;
       if (startLineY < canvas.height && startLineY > -100) {
         drawCheckerboard(startLineY);
       }
 
-      // Draw Finish Line (appears when you get close)
       let finishLineY = player.y - (raceDistance - player.distance);
       if (finishLineY < canvas.height && finishLineY > -100) {
         drawCheckerboard(finishLineY);
@@ -326,52 +319,57 @@
         let e = enemies[i];
         
         if (gameState === 'racing' || gameState === 'finished') {
-          // Enemies accelerate
           if (e.speed < e.maxSpeed) e.speed += e.accel;
           e.distance += e.speed;
 
-          // Enemy AI: If they are ahead of you, they slightly drift to block you!
-          if (e.distance > player.distance + 40 && e.distance < player.distance + 300) {
-            if (e.x + e.w/2 < player.x + player.w/2 - 5) e.x += 0.3; // Drift right
-            else if (e.x + e.w/2 > player.x + player.w/2 + 5) e.x -= 0.3; // Drift left
+          // INCREASED DIFFICULTY: Enemies block you much faster now
+          if (e.distance > player.distance + 40 && e.distance < player.distance + 400) {
+            if (e.x + e.w/2 < player.x + player.w/2 - 2) e.x += 0.6; // Was 0.3
+            else if (e.x + e.w/2 > player.x + player.w/2 + 2) e.x -= 0.6; // Was 0.3
           }
         }
 
-        // Calculate their Y position on screen relative to the player
         e.y = player.y - (e.distance - player.distance);
 
-        // Draw Rival if they are visible on screen
         if (e.y > -100 && e.y < canvas.height + 100) {
           drawSTEMCar(e.x, e.y, e.w, e.h, e.color);
         }
 
         // Collision Detection
         if (gameState === 'racing') {
-          const m = 4; // margin
+          const m = 4; 
           if (player.x + m < e.x + e.w - m && player.x + player.w - m > e.x + m &&
               player.y + m < e.y + e.h - m && player.h + player.y - m > e.y + m) {
-            // CRASH! You lose speed, they gain a bump
-            player.speed *= 0.6; 
+            // INCREASED DIFFICULTY: Hitting an enemy hurts your speed more
+            player.speed *= 0.5; 
             e.distance += 10; 
           }
         }
       }
 
-      // Draw Player Car
-      drawSTEMCar(player.x, player.y, player.w, player.h, player.color);
+      // DRAW PLAYER CAR (Now using your real photo!)
+      if (playerImg.complete) {
+        // Rotates the image if necessary, but assuming your image faces up:
+        ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+      } else {
+        // Fallback drawing while image loads
+        drawSTEMCar(player.x, player.y, player.w, player.h, player.color);
+      }
 
-      // Draw Lights if active
       if (gameState === 'lights') drawLights();
 
       // UI Text
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 16px sans-serif';
       
-      // Calculate current position
+      // Calculate display position
       let currentPos = 1;
-      enemies.forEach(e => { if (e.distance > player.distance) currentPos++; });
+      if (gameState === 'finished') {
+        currentPos = finalPosition; // Use the locked position!
+      } else {
+        enemies.forEach(e => { if (e.distance > player.distance) currentPos++; });
+      }
       
-      // Determine suffix (1st, 2nd, 3rd, 4th)
       let suffix = "th";
       if (currentPos === 1) suffix = "st";
       if (currentPos === 2) suffix = "nd";
@@ -384,7 +382,6 @@
       ctx.fillText(`Dist: ${distanceLeft}m`, canvas.width - 10, 25);
       ctx.textAlign = 'left';
 
-      // Screens
       if (gameState === 'menu') drawStartScreen();
       if (gameState === 'finished') drawGameOver(currentPos, suffix);
 
