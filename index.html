@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Veloce Dynamics | Mini Racing Game</title>
+  <title>Veloce Dynamics | STEM Grand Prix</title>
   <link rel="icon" type="image/png" href="images/Veloce Dynamics Logo no background.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
   <style>
@@ -52,10 +52,10 @@
       width: 100%;
     }
 
-    .logo { width: 100px; margin: 0 auto 1rem auto; display: block; }
+    .logo { width: 90px; margin: 0 auto 1rem auto; display: block; }
 
     h1 {
-      font-size: 2rem; margin-bottom: 0.5rem;
+      font-size: 2rem; margin-bottom: 0.2rem;
       background: linear-gradient(90deg, var(--accent1), var(--accent2), var(--accent3));
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
@@ -63,15 +63,15 @@
     p { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.95rem; }
 
     #gameCanvas {
-      background-color: #0f172a;
-      border: 2px solid #334155;
+      background-color: #1e293b;
+      border: 2px solid #475569;
       border-radius: 8px;
-      box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.9);
       display: block;
       margin: 0 auto;
       max-width: 100%;
       height: auto;
-      touch-action: none; /* Prevents zooming/scrolling on mobile while playing */
+      touch-action: none;
       cursor: pointer;
     }
 
@@ -99,8 +99,8 @@
   <div class="game-wrapper">
     <img src="images/Veloce Dynamics Logo no background.png" alt="Veloce Dynamics Logo" class="logo">
     
-    <h1>Track Simulator</h1>
-    <p>Dodge the slower cars! How long can you survive?</p>
+    <h1>STEM Grand Prix</h1>
+    <p>Overtake your rivals and fight for the podium!</p>
 
     <canvas id="gameCanvas" width="320" height="480"></canvas>
 
@@ -117,77 +117,55 @@
     const ctx = canvas.getContext('2d');
 
     // Game Variables
-    let gameState = 'start'; // 'start', 'playing', 'gameover'
-    let score = 0;
-    let highscore = localStorage.getItem('veloceRacingHighscore') || 0;
-    let gameSpeed = 4;
+    let gameState = 'start'; 
+    let score = 0; // Cars passed
+    let highscore = localStorage.getItem('veloceGrandPrixBest') || 0;
+    let baseSpeed = 12; // MUCH faster starting speed
     let frames = 0;
 
-    // Track/Road configuration
     const laneCount = 3;
     const laneWidth = canvas.width / laneCount;
     let roadLines = [];
 
-    // Player Car (Ice Blue!)
+    // Veloce Dynamics STEM Car
     const player = {
-      w: 30,
-      h: 55,
-      x: canvas.width / 2 - 15,
-      y: canvas.height - 80,
-      speed: 5,
+      w: 34,
+      h: 70,
+      x: canvas.width / 2 - 17,
+      y: canvas.height - 100,
+      speed: 6.5, // Faster steering
       dx: 0,
-      color: '#22d3ee' 
+      color: '#22d3ee' // Ice Blue
     };
 
-    // Enemy Cars
+    // Rival Cars
     let enemies = [];
-    const enemyColors = ['#ef4444', '#fbbf24', '#a855f7', '#10b981']; // Red, Yellow, Purple, Green
+    // F1 Colors: Ferrari Red, Mercedes Silver, Aston Green, RedBull Navy
+    const enemyColors = ['#ef4444', '#cbd5e1', '#10b981', '#1e3a8a']; 
 
     // --- INPUT HANDLING ---
-    // Keyboard
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'a') player.dx = -player.speed;
       if (e.key === 'ArrowRight' || e.key === 'd') player.dx = player.speed;
-      
-      // Start or Restart with Spacebar
       if (e.key === ' ' && gameState !== 'playing') resetGame();
     });
 
     document.addEventListener('keyup', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'a' || e.key === 'd') {
-        player.dx = 0;
-      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'a' || e.key === 'd') player.dx = 0;
     });
 
-    // Mouse / Touch (Clicking left or right side of canvas)
     canvas.addEventListener('mousedown', handleTouchStart);
-    canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      handleTouchStart(e.touches[0]);
-    }, {passive: false});
-
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(e.touches[0]); }, {passive: false});
     canvas.addEventListener('mouseup', stopMovement);
     canvas.addEventListener('touchend', stopMovement);
 
     function handleTouchStart(e) {
-      if (gameState !== 'playing') {
-        resetGame();
-        return;
-      }
+      if (gameState !== 'playing') { resetGame(); return; }
       const rect = canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
-      
-      // If clicked on left half, move left. If right half, move right.
-      if (clickX < canvas.width / 2) {
-        player.dx = -player.speed;
-      } else {
-        player.dx = player.speed;
-      }
+      player.dx = clickX < canvas.width / 2 ? -player.speed : player.speed;
     }
-
-    function stopMovement() {
-      player.dx = 0;
-    }
+    function stopMovement() { player.dx = 0; }
 
     // --- GAME LOGIC ---
     function resetGame() {
@@ -196,130 +174,152 @@
       enemies = [];
       roadLines = [];
       score = 0;
-      gameSpeed = 4;
+      baseSpeed = 12; // Reset to high speed
       frames = 0;
       
-      // Initial Road Lines
-      for(let i=0; i<5; i++) {
-        roadLines.push({y: i * 100});
-      }
-
+      for(let i=0; i<6; i++) { roadLines.push({y: i * 100}); }
       gameState = 'playing';
       update();
     }
 
     function spawnEnemy() {
-      // Pick a random lane
       const lane = Math.floor(Math.random() * laneCount);
       const enemyX = (lane * laneWidth) + (laneWidth / 2) - (player.w / 2);
       
+      // Determine if car is slower (you overtake) or faster (it overtakes you)
+      const isFaster = Math.random() > 0.8; // 20% chance an enemy overtakes YOU from behind
+      
+      const enemySpeed = isFaster ? baseSpeed + (Math.random() * 3 + 2) : baseSpeed - (Math.random() * 4 + 2);
+      const startY = isFaster ? canvas.height + 50 : -80;
+
       enemies.push({
         x: enemyX,
-        y: -60,
-        w: 30,
-        h: 55,
-        speed: Math.random() * 2 + (gameSpeed * 0.4), // Slower than track speed to simulate overtaking
-        color: enemyColors[Math.floor(Math.random() * enemyColors.length)]
+        y: startY,
+        w: 34,
+        h: 70,
+        speed: enemySpeed,
+        color: enemyColors[Math.floor(Math.random() * enemyColors.length)],
+        passed: false
       });
     }
 
-    function drawCar(x, y, w, h, color) {
+    // DRAW F1/STEM CAR
+    function drawSTEMCar(x, y, w, h, color) {
+      // 1. Tires (Exposed Black rectangles)
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(x, y + 12, 6, 16); // Top Left
+      ctx.fillRect(x + w - 6, y + 12, 6, 16); // Top Right
+      ctx.fillRect(x, y + h - 22, 6, 16); // Bottom Left
+      ctx.fillRect(x + w - 6, y + h - 22, 6, 16); // Bottom Right
+
+      // 2. Front Wing
       ctx.fillStyle = color;
+      ctx.fillRect(x + 2, y + 2, w - 4, 6);
+
+      // 3. Rear Wing
+      ctx.fillRect(x + 4, y + h - 8, w - 8, 8);
+
+      // 4. Aerodynamic Chassis (Narrower in middle)
       ctx.beginPath();
-      ctx.roundRect(x, y, w, h, 6); // Car body
+      ctx.moveTo(x + 10, y + 8); // Nose
+      ctx.lineTo(x + w - 10, y + 8);
+      ctx.lineTo(x + w - 6, y + h - 10); // Sidepods wide
+      ctx.lineTo(x + 6, y + h - 10);
+      ctx.closePath();
       ctx.fill();
-      
-      // Windshield
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(x + 4, y + 12, w - 8, 10);
-      
-      // Rear window
-      ctx.fillRect(x + 4, y + h - 15, w - 8, 8);
-      
-      // Headlights
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(x + 3, y - 2, 6, 4);
-      ctx.fillRect(x + w - 9, y - 2, 6, 4);
+
+      // 5. Cockpit / Halo
+      ctx.fillStyle = '#020617';
+      ctx.beginPath();
+      ctx.roundRect(x + 12, y + 28, w - 24, 16, 4);
+      ctx.fill();
+
+      // 6. Highlight/Decal down the middle
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillRect(x + w/2 - 1, y + 48, 2, 12);
     }
 
     function update() {
       if (gameState !== 'playing') return;
 
-      // Clear Canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       frames++;
 
-      // Increase difficulty slightly over time
-      if (frames % 600 === 0) gameSpeed += 0.5;
+      // Increase speed slightly over time to make it harder
+      if (frames % 300 === 0) baseSpeed += 0.5;
 
-      // Update Player position
       player.x += player.dx;
-      // Keep player inside canvas
       if (player.x < 0) player.x = 0;
       if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
-      // Draw Road Lines
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-      roadLines.forEach((line, index) => {
-        line.y += gameSpeed;
+      // Draw fast moving road
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      roadLines.forEach((line) => {
+        line.y += baseSpeed;
         if (line.y > canvas.height) line.y = -50;
-        
-        // Draw dashes for lane dividers
         for(let l = 1; l < laneCount; l++) {
-          ctx.fillRect(l * laneWidth - 2, line.y, 4, 30);
+          ctx.fillRect(l * laneWidth - 2, line.y, 4, 40); // Longer dashes for speed illusion
         }
       });
 
-      // Enemy Logic
-      if (frames % Math.max(40, 90 - Math.floor(gameSpeed * 5)) === 0) {
+      // Spawn Rivals
+      if (frames % Math.max(20, 45 - Math.floor(baseSpeed)) === 0) {
         spawnEnemy();
       }
 
       for (let i = 0; i < enemies.length; i++) {
         let e = enemies[i];
-        e.y += (gameSpeed - e.speed + 2); // Relative speed
+        
+        // Relative speed: If player base speed is 12 and enemy is 10, enemy moves DOWN by 2.
+        // If enemy speed is 15, enemy moves UP by 3 (overtaking you).
+        e.y += (baseSpeed - e.speed); 
 
-        drawCar(e.x, e.y, e.w, e.h, e.color);
+        drawSTEMCar(e.x, e.y, e.w, e.h, e.color);
 
-        // Collision Detection (AABB)
+        // Check Overtakes for Score
+        if (!e.passed && e.y > player.y + player.h) {
+          e.passed = true;
+          score++; // +1 for every rival left behind!
+        }
+
+        // Collision Detection (Tighter hitbox for the narrow F1 body)
+        const hitboxMargin = 6;
         if (
-          player.x < e.x + e.w - 4 &&
-          player.x + player.w - 4 > e.x &&
-          player.y < e.y + e.h - 4 &&
-          player.h + player.y - 4 > e.y
+          player.x + hitboxMargin < e.x + e.w - hitboxMargin &&
+          player.x + player.w - hitboxMargin > e.x + hitboxMargin &&
+          player.y + hitboxMargin < e.y + e.h - hitboxMargin &&
+          player.h + player.y - hitboxMargin > e.y + hitboxMargin
         ) {
           gameState = 'gameover';
           if (score > highscore) {
             highscore = score;
-            localStorage.setItem('veloceRacingHighscore', highscore);
+            localStorage.setItem('veloceGrandPrixBest', highscore);
           }
         }
 
-        // Remove off-screen enemies & add score
-        if (e.y > canvas.height) {
+        // Remove off-screen cars
+        if (e.y > canvas.height + 150 || e.y < -150) {
           enemies.splice(i, 1);
           i--;
-          score += 10;
         }
       }
 
-      // Draw Player Car
-      drawCar(player.x, player.y, player.w, player.h, player.color);
+      // Draw Veloce Dynamics Player Car
+      drawSTEMCar(player.x, player.y, player.w, player.h, player.color);
 
-      // Draw UI
+      // UI
       ctx.fillStyle = '#fff';
-      ctx.font = '16px sans-serif';
-      ctx.fillText(`Score: ${score}`, 10, 25);
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText(`Overtakes: ${score}`, 10, 25);
       ctx.fillText(`Best: ${highscore}`, canvas.width - 80, 25);
 
       requestAnimationFrame(update);
-      
       if(gameState === 'gameover') drawGameOver();
     }
 
     function drawStartScreen() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       ctx.fillStyle = '#22d3ee';
@@ -333,7 +333,7 @@
     }
 
     function drawGameOver() {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       ctx.fillStyle = '#ef4444';
@@ -343,16 +343,14 @@
       
       ctx.fillStyle = '#fff';
       ctx.font = '20px sans-serif';
-      ctx.fillText(`Score: ${score}`, canvas.width/2, canvas.height/2 + 10);
+      ctx.fillText(`Rivals Passed: ${score}`, canvas.width/2, canvas.height/2 + 10);
       
       ctx.fillStyle = '#22d3ee';
       ctx.font = '16px sans-serif';
-      ctx.fillText('Tap or Spacebar to Restart', canvas.width/2, canvas.height/2 + 50);
+      ctx.fillText('Tap or Spacebar to Retry', canvas.width/2, canvas.height/2 + 50);
     }
 
-    // Initialize
     drawStartScreen();
-
   </script>
 </body>
 </html>
